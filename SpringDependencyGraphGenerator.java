@@ -206,6 +206,7 @@ public class SpringDependencyGraphGenerator {
         DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
 
         XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+        
         for (String loc : locations) {
             reader.loadBeanDefinitions(new ClassPathResource(loc));
         }
@@ -221,6 +222,38 @@ public class SpringDependencyGraphGenerator {
             if( def.getParentName() != null && beanNames.contains(def.getParentName())) {
                 addEdge(name, def.getParentName());
             }
+            
+            try
+            {
+                Class<?> beanType = Class.forName(def.getBeanClassName());
+                for (Field field : beanType.getDeclaredFields())
+                {
+                    if (field.getAnnotation(Autowired.class) != null)
+                    {
+                        String dependencyClassName = field.getType().getSimpleName();
+                        String dependencyBeanName = dependencyClassName.substring(0, 1).toLowerCase() + dependencyClassName.substring(1);
+                        
+                        if (field.getType().isInterface() && !beanNames.contains(dependencyBeanName))
+                        {
+                            dependencyBeanName += "Impl";
+                        }
+                        
+                        if (beanNames.contains(dependencyBeanName))
+                        {
+                            addEdge(name, dependencyBeanName);
+                            System.out.println("adding dependency " + name + " -> " + dependencyBeanName);
+                        }
+                        else
+                        {
+                            System.out.println("discarding dependency " + name + " -> " + dependencyBeanName);
+                        }
+                    }
+                }
+            }
+            catch (ClassNotFoundException e)
+            {
+            }
+            
 
             StringBuilder sbc = new StringBuilder();
             for (ValueHolder valHolder : ctorArgs.getGenericArgumentValues()) {
